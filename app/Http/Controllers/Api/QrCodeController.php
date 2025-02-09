@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\QrCodeRequest;
+use App\Utils\MyQrCodeReader;
 use Illuminate\Http\Request;
-use BaconQrCode\Reader\QrReader;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class QrCodeController extends Controller
@@ -32,27 +32,33 @@ class QrCodeController extends Controller
         ]);
     }
 
+
     public function read(Request $request)
     {
-        $request->validate([
-            'file' => 'required|image',
-        ]);
+        // QR kod faylini olish
+        $file = $request->file('qr_code');  // Faylni form-data orqali yuboring
 
-        $file = $request->file('file');
-        $imagePath = $file->store('temp', 'public');
-        $fullPath = storage_path('app/public/' . $imagePath);
+        if (!$file) {
+            return response()->json([
+                'error' => 'QR kod fayli yuborilmagan!'
+            ], 400);
+        }
 
-        // QR kodni o'qish
-        $qrReader = new QrReader($fullPath);
-        $result = $qrReader->decode();
+        // Faylni yuklab olish
+        $filePath = $file->getRealPath();
 
-        if (!$result) {
-            return response()->json(['error' => 'QR kodni o‘qishda xatolik yuz berdi.'], 400);
+        $qrReader = new MyQrCodeReader();
+        $text = $qrReader->read($filePath);
+
+        if ($text === null) {
+            return response()->json([
+                'error' => 'QR kodni o\'qib bo\'lmadi.'
+            ], 400);
         }
 
         return response()->json([
-            'message' => 'QR kod muvaffaqiyatli o‘qildi.',
-            'data' => $result->getText(), // O'qilgan ma'lumot
+            'message' => 'QR kod muvaffaqiyatli o\'qildi.',
+            'data' => $text
         ]);
     }
 }
